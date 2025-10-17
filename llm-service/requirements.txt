@@ -1,0 +1,9 @@
+fastapi
+uvicorn[standard]
+transformers
+torch
+sentencepiece
+protobuf
+accelerate
+python-multipart
+openai

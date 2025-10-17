@@ -1,0 +1,9 @@
+fastapi
+uvicorn[standard]
+httpx
+asyncpg
+pydantic-settings
+pydantic
+python-dotenv
+pytest
+alembic

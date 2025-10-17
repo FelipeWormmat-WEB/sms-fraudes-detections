@@ -1,0 +1,60 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --bg: #202124;
+  --text: #e8eaed;
+}
+
+html, body, #root {
+  height: 100%;
+}
+
+body {
+  font-family: Arial, sans-serif;
+  background-color: #f8f9fa;
+  color: #202124;
+  margin: 0;
+  padding: 0;
+}
+
+h1 {
+  font-size: 2rem;
+  font-weight: bold;
+}
+
+.app-title {
+  font-weight: 800;
+  font-size: clamp(2.25rem, 5vw, 3rem);
+  line-height: 1.1;
+  margin-bottom: 2rem;
+  color: var(--text);
+  text-align: center;
+}
+.search-button-primary{
+  border-radius: 30px;
+  width: 100%;
+  margin-right: 20px;
+  height: 60px;
+}
+.estou-com-sorte{
+  border-radius: 30px;
+  width: 100%;
+  margin-left: 20px;
+}
+.pesquisar-input{
+  border-radius: 50px;
+  padding-left: 20px;
+  padding-right: 20px;
+  height: 50px;
+  width: 100%;
+  max-width: 600px;
+  border: 1px solid #dfe1e5;
+  box-shadow: none;
+  font-size: 16px;
+  margin-bottom: 25px;
+  display: flex;
+  position: relative;
+  justify-self: center;
+}

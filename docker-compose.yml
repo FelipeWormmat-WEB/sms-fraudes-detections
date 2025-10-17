@@ -1,0 +1,70 @@
+services:
+  db:
+    image: postgres:15
+    environment:
+      POSTGRES_USER: user
+      POSTGRES_PASSWORD: password
+      POSTGRES_DB: smsdb
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U user -d smsdb"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - sms-network
+    restart: unless-stopped
+
+  gateway-service:
+    build: ./gateway-service
+    env_file:
+      - .env
+    environment:
+      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}
+      CLASSIFICATION_URL: ${CLASSIFICATION_URL}
+      SECRET_KEY: ${SECRET_KEY}
+    ports:
+      - "8000:8000"
+    depends_on:
+      db:
+        condition: service_healthy
+      classification-service:
+        condition: service_started
+    networks:
+      - sms-network
+    restart: unless-stopped
+
+  classification-service:
+    build: ./classification-service
+    environment:
+      LOG_LEVEL: INFO
+    ports:
+      - "8080:8080"
+    volumes:
+      - ./classification-service/datasets:/app/datasets
+      - ./classification-service/model.json:/app/model.json
+    networks:
+      - sms-network
+    restart: unless-stopped
+
+  frontend:
+    build: ./frontend
+    ports:
+      - "5173:5173"
+    environment:
+      - VITE_API_URL=http://gateway-service:8000
+    depends_on:
+      - gateway-service
+    networks:
+      - sms-network
+    restart: unless-stopped
+
+volumes:
+  pgdata:
+
+networks:
+  sms-network:
+    driver: bridge
