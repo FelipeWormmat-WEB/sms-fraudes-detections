@@ -1,3 +1,5 @@
+version: '3.8'
+
 services:
   db:
     image: postgres:15
@@ -16,18 +18,14 @@ services:
       retries: 5
     networks:
       - sms-network
-    restart: unless-stopped
 
   gateway-service:
     build: ./gateway-service
-    env_file:
-      - .env
-    environment:
-      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}
-      CLASSIFICATION_URL: ${CLASSIFICATION_URL}
-      SECRET_KEY: ${SECRET_KEY}
     ports:
       - "8000:8000"
+    environment:
+      DATABASE_URL: postgresql+asyncpg://user:password@db:5432/smsdb
+      CLASSIFICATION_URL: http://classification-service:8080
     depends_on:
       db:
         condition: service_healthy
@@ -35,12 +33,9 @@ services:
         condition: service_started
     networks:
       - sms-network
-    restart: unless-stopped
 
   classification-service:
     build: ./classification-service
-    environment:
-      LOG_LEVEL: INFO
     ports:
       - "8080:8080"
     volumes:
@@ -48,7 +43,6 @@ services:
       - ./classification-service/model.json:/app/model.json
     networks:
       - sms-network
-    restart: unless-stopped
 
   frontend:
     build: ./frontend
@@ -60,7 +54,6 @@ services:
       - gateway-service
     networks:
       - sms-network
-    restart: unless-stopped
 
 volumes:
   pgdata:
