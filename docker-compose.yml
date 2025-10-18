@@ -60,7 +60,6 @@ services:
       - gateway-service
     networks:
       - sms-network
-    restart: unless-stopped
 
 volumes:
   pgdata:

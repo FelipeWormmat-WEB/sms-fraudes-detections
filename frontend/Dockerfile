@@ -3,12 +3,15 @@ FROM node:20-alpine
 
 WORKDIR /app
 
+# Instalar curl e outras dependências necessárias
+RUN apk add --no-cache curl
+
 # Copiar apenas manifestos de dependência primeiro para aproveitar o cache
 COPY package.json package-lock.json* ./
 
 # Instalar dependências
 # Usamos npm install ao invés de npm ci para funcionar mesmo sem lockfile
-RUN npm install
+RUN npm install && npm install -D sass-embedded
 
 # Copiar o restante do código
 COPY . .

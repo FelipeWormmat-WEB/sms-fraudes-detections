@@ -1,9 +1,11 @@
+from sqlalchemy.future import select
+from typing import List
 from fastapi import APIRouter, HTTPException, Depends
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.db.session import get_db
 from app.db.models import MessageInput, SMSLog
 from app.services.classification import classify_message, hybrid_classification
-from app.api.schemas import SMSRequest, SMSResponse
+from app.api.schemas import SMSLogResponse, SMSRequest, SMSResponse
 import logging
 import os
 from app.services.classification import classify_message
@@ -87,3 +89,9 @@ async def analyze_message_hybrid(payload: MessageInput):
 @router.get("/health")
 async def health_check():
     return {"status": "healthy"}
+
+@router.get("/logs", response_model=List[SMSLogResponse])
+async def get_logs(db: AsyncSession = Depends(get_db)):
+    result = await db.execute(select(SMSLog).order_by(SMSLog.created_at.desc()))
+    logs = result.scalars().all()
+    return logs
