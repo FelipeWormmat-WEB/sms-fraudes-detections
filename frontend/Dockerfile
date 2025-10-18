@@ -3,6 +3,9 @@ FROM node:20-alpine
 
 WORKDIR /app
 
+# Instalar curl e outras dependências necessárias
+RUN apk add --no-cache curl
+
 # Copiar apenas manifestos de dependência primeiro para aproveitar o cache
 COPY package.json package-lock.json* ./
 

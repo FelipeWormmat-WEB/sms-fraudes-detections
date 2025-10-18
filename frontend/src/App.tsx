@@ -13,7 +13,7 @@ export default function App() {
 
   const fetchLogs = async () => {
     try {
-      const response = await axios.get<SMSLog[]>(`${API_URL}/logs`);
+      const response = await axios.get<SMSLog[]>(`${API_URL}/api/logs`);
       setLogs(response.data);
     } catch (error) {
       if (axios.isAxiosError(error)) {
@@ -24,19 +24,16 @@ export default function App() {
     }
   };
 
-  useEffect(() => {
-    fetchLogs();
-  }, []);
-
   const handleSubmit = async (message: string) => {
     setIsLoading(true);
     try {
-      const response = await axios.post(`${API_URL}/analyze`, { message });
+      const response = await axios.post('/api/analyze', { message });
       toast.success(`Mensagem classificada como: ${response.data.prediction} (confiança: ${response.data.confidence.toFixed(2)})`);
       await fetchLogs();
     } catch (error) {
       if (axios.isAxiosError(error)) {
-        toast.error(`Erro ao classificar mensagem: ${error.message}`);
+        console.error('Erro ao classificar mensagem:', error.response?.data || error.message);
+        toast.error(`Erro ao classificar mensagem: ${error.response?.data?.detail || error.message}`);
       } else {
         toast.error(`Erro inesperado ao classificar mensagem`);
       }
@@ -44,6 +41,10 @@ export default function App() {
       setIsLoading(false);
     }
   };
+
+  useEffect(() => {
+    fetchLogs();
+  }, []);
 
   return (
     <div className="min-h-screen bg-gray-50 p-8">
