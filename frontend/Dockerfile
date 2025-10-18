@@ -8,7 +8,7 @@ COPY package.json package-lock.json* ./
 
 # Instalar dependências
 # Usamos npm install ao invés de npm ci para funcionar mesmo sem lockfile
-RUN npm install
+RUN npm install && npm install -D sass-embedded
 
 # Copiar o restante do código
 COPY . .
