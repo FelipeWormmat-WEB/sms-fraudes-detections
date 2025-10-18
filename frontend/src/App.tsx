@@ -1,63 +1,61 @@
-import { useState } from "react";
-import "./styles/theme.css";
+import { useState, useEffect } from 'react';
+import axios from 'axios';
+import { toast } from 'react-toastify';
+import MessageForm from './components/MessageForm';
+import Dashboard from './components/Dashboard';
+import type { SMSLog } from './types';
 
-function App() {
-  console.log('[frontend] App mounted')
-  const [query, setQuery] = useState("");
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
 
-  const handleSearch = async () => {
-    if (!query.trim()) return;
+export default function App() {
+  const [logs, setLogs] = useState<SMSLog[]>([]);
+  const [isLoading, setIsLoading] = useState<boolean>(false);
 
-      try {
-        console.log('[frontend] calling gateway /analyze len=%d', query.length)
-        const response = await fetch("http://localhost:8000/analyze", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({ message: query }),
-        });
-        console.log('[frontend] /analyze status=%d', response.status)
-
-        if (!response.ok) throw new Error("Erro ao classificar a mensagem");
-
-        const data = await response.json();
-        console.log('[frontend] /analyze response', data)
-        alert(`Mensagem: ${data.message}\nPredição: ${data.prediction}`);
-      } catch (error: any) {
-        console.error('[frontend] /analyze error', error);
-        alert("Erro ao conectar com o backend: " + error.message);
+  const fetchLogs = async () => {
+    try {
+      const response = await axios.get<SMSLog[]>(`${API_URL}/logs`);
+      setLogs(response.data);
+    } catch (error) {
+      if (axios.isAxiosError(error)) {
+        toast.error(`Erro ao buscar logs: ${error.message}`);
+      } else {
+        toast.error(`Erro inesperado ao buscar logs`);
       }
+    }
+  };
+
+  useEffect(() => {
+    fetchLogs();
+  }, []);
+
+  const handleSubmit = async (message: string) => {
+    setIsLoading(true);
+    try {
+      const response = await axios.post(`${API_URL}/analyze`, { message });
+      toast.success(`Mensagem classificada como: ${response.data.prediction} (confiança: ${response.data.confidence.toFixed(2)})`);
+      await fetchLogs();
+    } catch (error) {
+      if (axios.isAxiosError(error)) {
+        toast.error(`Erro ao classificar mensagem: ${error.message}`);
+      } else {
+        toast.error(`Erro inesperado ao classificar mensagem`);
+      }
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center bg-gray-50 font-sans">
-      <h1 className="text-4xl font-bold mb-8">Classificador</h1>
-      <div className="relative w-full max-w-2xl">
-        <input
-          type="text"
-          value={query}
-          onChange={(e) => setQuery(e.target.value)}
-          onKeyDown={(e) => {
-            if (e.key === "Enter") handleSearch();
-          }}
-          placeholder="Pesquise no Google ou digite uma URL"
-          className="pesquisar-input"
-        />
-      </div>
-      <div className="flex gap-4 mt-6">
-        <button onClick={handleSearch} className="search-button-primary">
-          Pesquisa Google
-        </button>
-        <button
-          onClick={() => alert("Estou com sorte!")}
-          className="estou-com-sorte"
-        >
-          Estou com sorte
-        </button>
+    <div className="min-h-screen bg-gray-50 p-8">
+      <h1 className="text-3xl font-bold text-center text-indigo-700 mb-8">SMS Fraud Detection Dashboard</h1>
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+        <div className="lg:col-span-1">
+          <MessageForm onSubmit={handleSubmit} isLoading={isLoading} />
+        </div>
+        <div className="lg:col-span-2">
+          <Dashboard logs={logs} />
+        </div>
       </div>
     </div>
   );
 }
-
-export default App;
