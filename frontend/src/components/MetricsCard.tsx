@@ -1,12 +1,6 @@
 import { useState, useEffect } from 'react';
 import axios from 'axios';
-
-interface Metrics {
-  accuracy: number;
-  precision: number;
-  recall: number;
-  f1_score: number;
-}
+import type { Metrics } from '../types';
 
 export default function MetricsCard() {
   const [metrics, setMetrics] = useState<Metrics | null>(null);
@@ -47,6 +41,10 @@ export default function MetricsCard() {
           <p className="text-sm text-gray-500">F1-Score</p>
           <p className="text-2xl font-bold text-blue-600">{metrics.f1_score.toFixed(2)}</p>
         </div>
+      </div>
+      <div className="mt-4 text-sm text-gray-500">
+        <p>Tamanho do conjunto de treinamento: {metrics.train_size}</p>
+        <p>Tamanho do conjunto de teste: {metrics.test_size}</p>
       </div>
     </div>
   );
