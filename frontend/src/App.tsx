@@ -5,19 +5,17 @@ import MessageForm from './components/MessageForm';
 import Dashboard from './components/Dashboard';
 import type { SMSLog } from './types';
 
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
-
 export default function App() {
   const [logs, setLogs] = useState<SMSLog[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(false);
 
   const fetchLogs = async () => {
     try {
-      const response = await axios.get<SMSLog[]>(`${API_URL}/api/logs`);
+      const response = await axios.get<SMSLog[]>('/api/logs');
       setLogs(response.data);
     } catch (error) {
       if (axios.isAxiosError(error)) {
-        toast.error(`Erro ao buscar logs: ${error.message}`);
+        toast.error(`Erro ao buscar logs`);
       } else {
         toast.error(`Erro inesperado ao buscar logs`);
       }

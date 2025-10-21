@@ -1,6 +1,4 @@
-# Frontend (Vite + React) Dev Server
 FROM node:20-alpine
-
 WORKDIR /app
 
 # Instalar curl e outras dependências necessárias
@@ -10,8 +8,7 @@ RUN apk add --no-cache curl
 COPY package.json package-lock.json* ./
 
 # Instalar dependências
-# Usamos npm install ao invés de npm ci para funcionar mesmo sem lockfile
-RUN npm install && npm install -D sass-embedded
+RUN npm install
 
 # Copiar o restante do código
 COPY . .
