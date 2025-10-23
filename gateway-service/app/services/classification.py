@@ -4,6 +4,12 @@ import time
 import logging
 import pickle
 from pathlib import Path
+import pickle
+from scipy.sparse import hstack
+from pathlib import Path
+from ml_pipeline.preprocess import TextPreprocessor
+from ml_pipeline.features import FeatureExtractor
+import numpy as np
 
 logger = logging.getLogger("gateway.classification")
 
@@ -21,22 +27,23 @@ CLASSIFICATION_URL = os.getenv("CLASSIFICATION_URL", "http://classification-serv
 _MODEL = None
 _VECTORIZER = None
 _SKLEARN_AVAILABLE = False
+_FEATURE_NAMES = None
+_PREPROCESSOR = TextPreprocessor()
+_EXTRACTOR = FeatureExtractor()
 
 def _load_local_model():
-    global _MODEL, _VECTORIZER, _SKLEARN_AVAILABLE
+    global _MODEL, _VECTORIZER, _FEATURE_NAMES
+    base_dir = Path(__file__).parent.parent / "models"  # gateway-service/models
     try:
-        base_dir = Path(__file__).resolve().parents[2]
-        model_path = base_dir / "models" / "sms_classifier.pkl"
-        vectorizer_path = base_dir / "models" / "vectorizer.pkl"
-        if model_path.exists() and vectorizer_path.exists():
-            with open(model_path, "rb") as f:
-                _MODEL = pickle.load(f)
-            with open(vectorizer_path, "rb") as f:
-                _VECTORIZER = pickle.load(f)
-            logger.info("Modelo local carregado com sucesso")
-            _SKLEARN_AVAILABLE = True
+        with open(base_dir / "best_classifier.pkl", "rb") as f:
+            _MODEL = pickle.load(f)
+        with open(base_dir / "tfidf_vectorizer.pkl", "rb") as f:
+            _VECTORIZER = pickle.load(f)
+        with open(base_dir / "feature_names.pkl", "rb") as f:
+            _FEATURE_NAMES = pickle.load(f)
+        print("✅ Novo modelo avançado carregado!")
     except Exception as e:
-        logger.exception("Falha ao carregar modelo local: %s", e)
+        print(f"❌ Erro no load: {e}")
 
 # Carregar o modelo local ao importar este módulo
 _load_local_model()

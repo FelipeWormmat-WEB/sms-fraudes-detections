@@ -28,6 +28,9 @@ services:
       SECRET_KEY: ${SECRET_KEY}
     ports:
       - "8000:8000"
+    volumes:
+      - ./gateway-service/ml_pipeline:/app/ml_pipeline
+      - ./gateway-service/models:/app/models
     depends_on:
       db:
         condition: service_healthy
