@@ -38,3 +38,12 @@ Thumbs.db
 htmlcov/
 .pytest_cache/
 .mypy_cache/
+
+# Go build cache (never commit — set GOCACHE outside the repo if needed)
+.gocache/
+**/.gocache/
+
+# Local model artifacts / temp tooling
+gateway-service/models/
+.pip-audit-cache/
+.pip-audit-tmp/

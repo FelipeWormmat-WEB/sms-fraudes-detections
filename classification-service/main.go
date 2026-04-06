@@ -76,8 +76,8 @@ func main() {
 			c.JSON(http.StatusBadRequest, gin.H{"error": "invalid request payload"})
 			return
 		}
-		if trimmed := strings.TrimSpace(req.Message); trimmed == "" || len(trimmed) > 4096 {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "message must be between 1 and 4096 characters"})
+		if trimmed := strings.TrimSpace(req.Message); trimmed == "" || len(trimmed) > 512 {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "message must be between 1 and 512 characters"})
 			return
 		}
 

@@ -7,7 +7,7 @@ export default function LLMAnalyzer() {
 
   const handleAnalyze = async () => {
     const data = await analyzeLLM(text);
-    setResult(data.llm_analysis);
+    setResult(data.prediction ?? data.analysis ?? data.status ?? "unknown");
   };
 
   return (

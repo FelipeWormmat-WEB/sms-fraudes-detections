@@ -1,7 +1,15 @@
+import { getApiKey } from "./auth";
+
 export async function analyzeLLM(message: string) {
-  const resp = await fetch("http://localhost:8000/analyze_llm", {
+  const apiKey = getApiKey();
+  const headers: Record<string, string> = {"Content-Type": "application/json"};
+  if (apiKey) {
+    headers["X-API-Key"] = apiKey;
+  }
+
+  const resp = await fetch("/api/analyze_llm", {
     method: "POST",
-    headers: {"Content-Type": "application/json"},
+    headers,
     body: JSON.stringify({ message })
   });
   return await resp.json();

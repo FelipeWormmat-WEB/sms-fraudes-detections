@@ -26,7 +26,7 @@ export default function Dashboard({ logs }: DashboardProps) {
           <h3 className="text-lg font-medium text-gray-700">Mensagens HAM</h3>
           <p className="mt-2 text-3xl font-bold text-green-600">{hamCount}</p>
         </div>
-        <MetricsCard/>
+        <MetricsCard refreshKey={total} />
       </div>
 
       <div className="bg-white p-6 rounded-lg shadow-md">

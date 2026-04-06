@@ -2,15 +2,13 @@ services:
   db:
     image: postgres:15
     environment:
-      POSTGRES_USER: user
-      POSTGRES_PASSWORD: password
-      POSTGRES_DB: smsdb
-    ports:
-      - "5432:5432"
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
     volumes:
       - pgdata:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U user -d smsdb"]
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -26,12 +24,23 @@ services:
       DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}
       CLASSIFICATION_URL: ${CLASSIFICATION_URL}
       SECRET_KEY: ${SECRET_KEY}
+      ADMIN_API_KEY: ${ADMIN_API_KEY}
+      ENFORCE_API_KEY: ${ENFORCE_API_KEY}
+      INTERNAL_SERVICE_TOKEN: ${INTERNAL_SERVICE_TOKEN}
+      LLM_SERVICE_URL: ${LLM_SERVICE_URL}
+      HYBRID_LLM_THRESHOLD: ${HYBRID_LLM_THRESHOLD}
+      CORS_ORIGINS: ${CORS_ORIGINS}
+      ALLOWED_HOSTS: ${ALLOWED_HOSTS}
+      GATEWAY_RATE_LIMIT_PER_MINUTE: ${GATEWAY_RATE_LIMIT_PER_MINUTE}
+      GATEWAY_ADMIN_RATE_LIMIT_PER_MINUTE: ${GATEWAY_ADMIN_RATE_LIMIT_PER_MINUTE}
     ports:
-      - "8000:8000"
+      - "127.0.0.1:8000:8000"
     depends_on:
       db:
         condition: service_healthy
       classification-service:
+        condition: service_started
+      llm-service:
         condition: service_started
     networks:
       - sms-network
@@ -41,11 +50,28 @@ services:
     build: ./classification-service
     environment:
       LOG_LEVEL: INFO
-    ports:
-      - "8080:8080"
+      INTERNAL_SERVICE_TOKEN: ${INTERNAL_SERVICE_TOKEN}
+      ENABLE_RETRAIN: ${ENABLE_RETRAIN}
     volumes:
       - ./classification-service/datasets:/app/datasets
       - ./classification-service/model.json:/app/model.json
+    expose:
+      - "8080"
+    networks:
+      - sms-network
+    restart: unless-stopped
+
+  llm-service:
+    build: ./llm-service
+    env_file:
+      - .env
+    environment:
+      OPENAI_API_KEY: ${OPENAI_API_KEY}
+      OPENAI_MODEL: ${OPENAI_MODEL}
+      INTERNAL_SERVICE_TOKEN: ${INTERNAL_SERVICE_TOKEN}
+      LOG_LEVEL: ${LOG_LEVEL}
+    expose:
+      - "8001"
     networks:
       - sms-network
     restart: unless-stopped
@@ -53,7 +79,7 @@ services:
   frontend:
     build: ./frontend
     ports:
-      - "5173:5173"
+      - "127.0.0.1:5173:5173"
     environment:
       - VITE_API_URL=http://gateway-service:8000
     depends_on:
