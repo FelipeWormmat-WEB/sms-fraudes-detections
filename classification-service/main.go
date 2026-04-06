@@ -1,8 +1,11 @@
 package main
 
 import (
+	"crypto/subtle"
 	"log"
 	"net/http"
+	"os"
+	"strings"
 
 	"github.com/gin-gonic/gin"
 )
@@ -15,6 +18,29 @@ type Response struct {
 	Message    string  `json:"message"`
 	Prediction string  `json:"prediction"`
 	Confidence float64 `json:"confidence"`
+}
+
+func requireInternalToken() gin.HandlerFunc {
+	expectedToken := strings.TrimSpace(os.Getenv("INTERNAL_SERVICE_TOKEN"))
+	return func(c *gin.Context) {
+		if expectedToken == "" {
+			c.AbortWithStatusJSON(http.StatusServiceUnavailable, gin.H{"error": "internal service token not configured"})
+			return
+		}
+
+		providedToken := strings.TrimSpace(c.GetHeader("X-Internal-Service-Token"))
+		if len(providedToken) != len(expectedToken) ||
+			subtle.ConstantTimeCompare([]byte(providedToken), []byte(expectedToken)) != 1 {
+			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
+			return
+		}
+
+		c.Next()
+	}
+}
+
+func retrainEnabled() bool {
+	return strings.EqualFold(strings.TrimSpace(os.Getenv("ENABLE_RETRAIN")), "true")
 }
 
 func main() {
@@ -43,19 +69,20 @@ func main() {
 		c.JSON(http.StatusMethodNotAllowed, gin.H{"detail": "use POST /classify with JSON {\"message\": \"...\"}"})
 	})
 
-	r.POST("/classify", func(c *gin.Context) {
+	r.POST("/classify", requireInternalToken(), func(c *gin.Context) {
 		var req Request
 		if err := c.ShouldBindJSON(&req); err != nil {
 			log.Printf("[classifier] bad request: %v", err)
-			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			c.JSON(http.StatusBadRequest, gin.H{"error": "invalid request payload"})
+			return
+		}
+		if trimmed := strings.TrimSpace(req.Message); trimmed == "" || len(trimmed) > 512 {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "message must be between 1 and 512 characters"})
 			return
 		}
 
 		label, conf := clf.Predict(req.Message)
 		pred := label
-		if label == "ham" {
-			pred = "legítimo"
-		}
 		log.Printf("[classifier] /classify len=%d label=%s conf=%.3f", len(req.Message), pred, conf)
 		res := Response{
 			Message:    req.Message,
@@ -64,14 +91,20 @@ func main() {
 		}
 		c.JSON(http.StatusOK, res)
 	})
-	r.POST("/retrain", func(c *gin.Context) {
+	r.POST("/retrain", requireInternalToken(), func(c *gin.Context) {
+		if !retrainEnabled() {
+			c.JSON(http.StatusNotFound, gin.H{"error": "not found"})
+			return
+		}
 		datasetsDir := "./datasets"
 		if err := clf.TrainFromDir(datasetsDir); err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			log.Printf("[classifier] retraining failed: %v", err)
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "retraining failed"})
 			return
 		}
 		if err := clf.SaveModel("model.json"); err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			log.Printf("[classifier] model save failed: %v", err)
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "model persistence failed"})
 			return
 		}
 		c.JSON(http.StatusOK, gin.H{
