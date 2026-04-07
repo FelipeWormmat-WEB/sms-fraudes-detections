@@ -4,7 +4,7 @@ import os
 from typing import List
 
 from fastapi import APIRouter, Depends, HTTPException
-from sqlalchemy import select
+from sqlalchemy import case, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sklearn.metrics import accuracy_score, f1_score, precision_score, recall_score
 
@@ -16,6 +16,7 @@ from app.api.schemas import (
     SMSResponse,
     UsageSummaryResponse,
 )
+from app.core.config import settings
 from app.core.security import (
     AuthContext,
     count_monthly_usage,
@@ -43,6 +44,13 @@ router = APIRouter()
 
 def _client_id(auth: AuthContext) -> int | None:
     return auth.client.id if auth.client else None
+
+
+def _log_filters(auth: AuthContext) -> list:
+    filters = []
+    if auth.client is not None:
+        filters.append(SMSLog.client_id == auth.client.id)
+    return filters
 
 
 def _normalize_ground_truth(value: str | None) -> str | None:
@@ -256,13 +264,20 @@ async def get_metrics(
 ):
     if auth.client is None:
         raise HTTPException(status_code=401, detail="An API key is required to access metrics")
-    query = select(SMSLog)
-    if auth.client is not None:
-        query = query.where(SMSLog.client_id == auth.client.id)
-    result = await db.execute(query)
-    logs = result.scalars().all()
+    filters = _log_filters(auth)
+    summary_query = select(
+        func.count(SMSLog.id),
+        func.coalesce(func.sum(case((SMSLog.prediction == "spam", 1), else_=0)), 0),
+        func.coalesce(func.sum(case((SMSLog.prediction == "ham", 1), else_=0)), 0),
+        func.coalesce(
+            func.sum(case((func.lower(func.coalesce(SMSLog.source, "")).like("%llm%"), 1), else_=0)),
+            0,
+        ),
+        func.coalesce(func.avg(SMSLog.confidence), 0.0),
+    ).where(*filters)
+    total_messages, spam_count, ham_count, llm_count, avg_confidence = (await db.execute(summary_query)).one()
 
-    if not logs:
+    if total_messages == 0:
         return {
             "accuracy": 0.0,
             "precision": 0.0,
@@ -278,20 +293,15 @@ async def get_metrics(
             "message": "No logs available for metrics",
         }
 
-    normalized_predictions = [normalize_prediction(log.prediction) for log in logs]
-    spam_count = sum(1 for label in normalized_predictions if label == "spam")
-    ham_count = sum(1 for label in normalized_predictions if label == "ham")
-    llm_count = sum(1 for log in logs if "llm" in (log.source or "").lower())
-    avg_confidence = sum(_safe_float(log.confidence, 0.0) for log in logs) / len(logs)
-
-    labeled_logs = [
-        log
-        for log in logs
-        if normalize_prediction(log.prediction) in {"spam", "ham"}
-        and _normalize_ground_truth(log.ground_truth) in {"spam", "ham"}
+    labeled_filters = [
+        *filters,
+        SMSLog.prediction.in_(("spam", "ham")),
+        SMSLog.ground_truth.in_(("spam", "ham")),
     ]
+    labeled_count_query = select(func.count(SMSLog.id)).where(*labeled_filters)
+    labeled_message_total = (await db.execute(labeled_count_query)).scalar_one()
 
-    if not labeled_logs:
+    if labeled_message_total == 0:
         return {
             "accuracy": 0.0,
             "precision": 0.0,
@@ -299,21 +309,34 @@ async def get_metrics(
             "f1_score": 0.0,
             "train_size": 0,
             "test_size": 0,
-            "total_messages": len(logs),
+            "total_messages": int(total_messages),
             "spam_count": spam_count,
             "ham_count": ham_count,
             "llm_count": llm_count,
-            "avg_confidence": avg_confidence,
+            "avg_confidence": float(avg_confidence),
             "message": "No ground-truth labels found. Send ground_truth in analyze requests.",
         }
 
-    y_true = [_normalize_ground_truth(log.ground_truth) for log in labeled_logs]
-    y_pred = [normalize_prediction(log.prediction) for log in labeled_logs]
+    labeled_logs_query = (
+        select(SMSLog.prediction, SMSLog.ground_truth)
+        .where(*labeled_filters)
+        .order_by(SMSLog.created_at.desc())
+        .limit(settings.METRICS_MAX_LABELED_MESSAGES)
+    )
+    labeled_logs = (await db.execute(labeled_logs_query)).all()
+    y_true = [str(log.ground_truth) for log in labeled_logs]
+    y_pred = [str(log.prediction) for log in labeled_logs]
 
     accuracy = accuracy_score(y_true, y_pred)
     precision = precision_score(y_true, y_pred, pos_label="spam", zero_division=0)
     recall = recall_score(y_true, y_pred, pos_label="spam", zero_division=0)
     f1 = f1_score(y_true, y_pred, pos_label="spam", zero_division=0)
+    metrics_are_sampled = labeled_message_total > len(labeled_logs)
+    metrics_message = "Metrics computed from labeled production logs"
+    if metrics_are_sampled:
+        metrics_message = (
+            f"Metrics computed from the most recent {len(labeled_logs)} labeled production logs"
+        )
 
     return {
         "accuracy": float(accuracy),
@@ -322,10 +345,12 @@ async def get_metrics(
         "f1_score": float(f1),
         "train_size": len(labeled_logs),
         "test_size": len(labeled_logs),
-        "total_messages": len(logs),
+        "total_messages": int(total_messages),
         "spam_count": spam_count,
         "ham_count": ham_count,
         "llm_count": llm_count,
         "avg_confidence": float(avg_confidence),
-        "message": "Metrics computed from labeled production logs",
+        "labeled_messages_total": int(labeled_message_total),
+        "metrics_sample_limited": metrics_are_sampled,
+        "message": metrics_message,
     }

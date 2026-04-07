@@ -1,20 +1,20 @@
 FROM node:20-alpine
 WORKDIR /app
 
-# Instalar curl e outras dependências necessárias
+# Install curl for local health checks and debugging.
 RUN apk add --no-cache curl
 
-# Copiar apenas manifestos de dependência primeiro para aproveitar o cache
+# Copy dependency manifests first to improve layer caching.
 COPY package.json package-lock.json* ./
 
-# Instalar dependências
-RUN npm install
+# Install from the lockfile for reproducible builds.
+RUN npm ci
 
-# Copiar o restante do código
+# Copy the rest of the application.
 COPY . .
 
-# Expor porta do Vite
+# Expose the Vite development port.
 EXPOSE 5173
 
-# Rodar o Vite no modo dev escutando em 0.0.0.0 para aceitar conexões externas
+# Docker needs 0.0.0.0 inside the container, while compose binds the host port to localhost.
 CMD ["npm", "run", "dev", "--", "--host", "0.0.0.0"]

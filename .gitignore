@@ -5,6 +5,12 @@
 **/.env.*
 !.env.example
 !**/.env.example
+.envrc
+.direnv/
+*.pem
+*.key
+*.p12
+*.pfx
 
 # Python
 __pycache__/

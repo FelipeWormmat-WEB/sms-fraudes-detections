@@ -2,8 +2,10 @@ from datetime import datetime
 from typing import Optional
 from pydantic import BaseModel, ConfigDict, Field
 
+from app.core.config import settings
+
 class SMSRequest(BaseModel):
-    message: str = Field(min_length=1, max_length=4096)
+    message: str = Field(min_length=1, max_length=settings.SMS_MAX_MESSAGE_LENGTH)
     ground_truth: Optional[str] = Field(default=None, description="Optional true label: spam or ham")
 
 class SMSResponse(BaseModel):

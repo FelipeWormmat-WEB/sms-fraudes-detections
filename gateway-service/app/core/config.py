@@ -45,6 +45,12 @@ class Settings(BaseSettings):
     ALLOWED_HOSTS: str = Field(default=_read_env("ALLOWED_HOSTS", "localhost,127.0.0.1,gateway-service"))
     GATEWAY_RATE_LIMIT_PER_MINUTE: int = Field(default=int(_read_env("GATEWAY_RATE_LIMIT_PER_MINUTE", "120")))
     GATEWAY_ADMIN_RATE_LIMIT_PER_MINUTE: int = Field(default=int(_read_env("GATEWAY_ADMIN_RATE_LIMIT_PER_MINUTE", "20")))
+    SMS_MAX_MESSAGE_LENGTH: int = Field(default=int(_read_env("SMS_MAX_MESSAGE_LENGTH", "512")), ge=1, le=4096)
+    METRICS_MAX_LABELED_MESSAGES: int = Field(
+        default=int(_read_env("METRICS_MAX_LABELED_MESSAGES", "1000")),
+        ge=10,
+        le=10_000,
+    )
 
     @property
     def is_production(self) -> bool:

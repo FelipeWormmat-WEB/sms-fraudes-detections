@@ -20,9 +20,15 @@ if (-not $repoRoot) {
 
 Set-Location -LiteralPath $repoRoot
 
-$historyHitCount = (& git rev-list --all --count -- .env 2>$null)
+$trackedEnvPaths = @(
+    ".env",
+    "frontend/.env",
+    "llm-service/.env"
+)
+
+$historyHitCount = (& git rev-list --all --count -- $trackedEnvPaths 2>$null)
 if (-not $historyHitCount -or $historyHitCount -eq "0") {
-    Write-Host "Nenhum commit com '.env' foi encontrado no historico. Nada para limpar."
+    Write-Host "Nenhum commit com arquivos .env rastreados foi encontrado no historico. Nada para limpar."
     exit 0
 }
 
@@ -47,12 +53,16 @@ $backupBranch = "backup/pre-env-history-cleanup-$timestamp"
 $backupTag = "backup/pre-env-history-cleanup-$timestamp"
 
 Write-Host "Foi encontrado '.env' em $historyHitCount commit(s)."
+Write-Host "Arquivos que serao removidos do historico:"
+foreach ($path in $trackedEnvPaths) {
+    Write-Host "  - $path"
+}
 Write-Host "Backup local que sera criado antes da limpeza:"
 Write-Host "  branch: $backupBranch"
 Write-Host "  tag:    $backupTag"
 Write-Host ""
 
-$confirmation = Read-Host "Reescrever o historico local para remover '.env' de todos os commits? [y/N]"
+$confirmation = Read-Host "Reescrever o historico local para remover os arquivos .env rastreados de todos os commits? [y/N]"
 if ($confirmation -notmatch '^(?i:y|yes)$') {
     Write-Host "Operacao cancelada. Nenhuma alteracao foi feita."
     exit 0
@@ -68,7 +78,7 @@ if ($LASTEXITCODE -ne 0) {
     Fail "Nao foi possivel criar a tag de backup '$backupTag'."
 }
 
-& git filter-repo --path .env --invert-paths --force
+& git filter-repo --path .env --path frontend/.env --path llm-service/.env --invert-paths --force
 if ($LASTEXITCODE -ne 0) {
     Fail "A limpeza do historico falhou. Use os backups criados para recuperar o estado anterior."
 }
@@ -80,7 +90,7 @@ Write-Host "  $backupBranch"
 Write-Host "  $backupTag"
 Write-Host ""
 Write-Host "Proximos passos obrigatorios:"
-Write-Host "1. Rotacione todas as secrets que ja estiveram no '.env' (API keys, database, tokens)."
+Write-Host "1. Rotacione todas as secrets que ja estiveram nos arquivos .env (API keys, database, tokens)."
 Write-Host "2. Revise o historico reescrito localmente antes de publicar."
 Write-Host "3. So depois disso, force-push conscientemente:"
 Write-Host "   git push origin --force --all"
